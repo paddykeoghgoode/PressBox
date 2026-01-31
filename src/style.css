@@ -128,6 +128,73 @@
     border-top: 1px solid #e0e0e0;
 }
 
+.pitchperfect-confidence {
+    background: #e5f5fa;
+    color: #0073aa;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+/* Context snippet */
+.pitchperfect-context {
+    margin: 8px 0;
+    padding: 8px 10px;
+    background: #f6f7f7;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #50575e;
+}
+
+.pitchperfect-context mark {
+    background: #ffe8a3;
+    padding: 0 2px;
+}
+
+/* Rewrite tools */
+.pitchperfect-rewrite-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.pitchperfect-rewrite-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 10px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.pitchperfect-rewrite-mode {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: #757575;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.pitchperfect-rewrite-original {
+    font-size: 12px;
+    color: #757575;
+    margin-bottom: 6px;
+}
+
+.pitchperfect-rewrite-suggestion {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.pitchperfect-rewrite-explanation {
+    font-size: 11px;
+    color: #50575e;
+    margin-bottom: 8px;
+}
+
 /* Inline highlights - for future block-level integration */
 .pitchperfect-highlight-error {
     background-color: rgba(220, 50, 50, 0.15);
