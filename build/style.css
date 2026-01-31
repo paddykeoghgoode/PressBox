@@ -2,6 +2,11 @@
  * PitchPerfect Editor Styles
  */
 
+/* Sidebar wrapper */
+.pitchperfect-sidebar {
+    padding: 0;
+}
+
 /* Suggestion cards */
 .pitchperfect-suggestion {
     transition: box-shadow 0.2s ease;
@@ -11,10 +16,18 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-/* Severity colors */
-.pitchperfect-severity-error { color: #dc3232; }
-.pitchperfect-severity-warning { color: #f0b849; }
-.pitchperfect-severity-info { color: #00a0d2; }
+/* Severity badges */
+.pitchperfect-severity-error {
+    color: #dc3232;
+}
+
+.pitchperfect-severity-warning {
+    color: #f0b849;
+}
+
+.pitchperfect-severity-info {
+    color: #00a0d2;
+}
 
 /* Type badges */
 .pitchperfect-type-badge {
@@ -101,6 +114,11 @@
     margin-bottom: 6px;
 }
 
+.pitchperfect-replacement-btn {
+    margin-right: 4px;
+    margin-bottom: 4px;
+}
+
 /* Actions row */
 .pitchperfect-actions {
     display: flex;
@@ -110,7 +128,74 @@
     border-top: 1px solid #e0e0e0;
 }
 
-/* Inline highlights - for block-level integration */
+.pitchperfect-confidence {
+    background: #e5f5fa;
+    color: #0073aa;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+/* Context snippet */
+.pitchperfect-context {
+    margin: 8px 0;
+    padding: 8px 10px;
+    background: #f6f7f7;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #50575e;
+}
+
+.pitchperfect-context mark {
+    background: #ffe8a3;
+    padding: 0 2px;
+}
+
+/* Rewrite tools */
+.pitchperfect-rewrite-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.pitchperfect-rewrite-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 10px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.pitchperfect-rewrite-mode {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: #757575;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.pitchperfect-rewrite-original {
+    font-size: 12px;
+    color: #757575;
+    margin-bottom: 6px;
+}
+
+.pitchperfect-rewrite-suggestion {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.pitchperfect-rewrite-explanation {
+    font-size: 11px;
+    color: #50575e;
+    margin-bottom: 8px;
+}
+
+/* Inline highlights - for future block-level integration */
 .pitchperfect-highlight-error {
     background-color: rgba(220, 50, 50, 0.15);
     border-bottom: 2px solid #dc3232;
@@ -126,46 +211,39 @@
     border-bottom: 2px dashed #00a0d2;
 }
 
-/* Repetition heatmap */
-.pitchperfect-repetition-1 { background-color: rgba(255, 235, 59, 0.3); }
-.pitchperfect-repetition-2 { background-color: rgba(255, 193, 7, 0.4); }
-.pitchperfect-repetition-3 { background-color: rgba(255, 152, 0, 0.5); }
-.pitchperfect-repetition-4 { background-color: rgba(255, 87, 34, 0.5); }
-.pitchperfect-repetition-5 { background-color: rgba(244, 67, 54, 0.5); }
-
-/* Admin settings */
-.pitchperfect-settings-wrap { max-width: 800px; }
-
-.pitchperfect-settings-section {
-    background: #fff;
-    padding: 20px;
-    margin-bottom: 20px;
-    border: 1px solid #ccd0d4;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+/* Repetition heatmap colors */
+.pitchperfect-repetition-1 {
+    background-color: rgba(255, 235, 59, 0.3);
 }
 
-.pitchperfect-settings-section h2 {
-    margin-top: 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
+.pitchperfect-repetition-2 {
+    background-color: rgba(255, 193, 7, 0.4);
 }
 
-/* Feature toggles */
-.pitchperfect-feature-toggle {
+.pitchperfect-repetition-3 {
+    background-color: rgba(255, 152, 0, 0.5);
+}
+
+.pitchperfect-repetition-4 {
+    background-color: rgba(255, 87, 34, 0.5);
+}
+
+.pitchperfect-repetition-5 {
+    background-color: rgba(244, 67, 54, 0.5);
+}
+
+/* Filter section */
+.pitchperfect-filters {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 0;
-    border-bottom: 1px solid #f0f0f0;
+    gap: 12px;
+    margin-bottom: 16px;
 }
 
-.pitchperfect-feature-toggle:last-child { border-bottom: none; }
+.pitchperfect-filters .components-select-control {
+    flex: 1;
+}
 
-.pitchperfect-feature-info { flex: 1; }
-.pitchperfect-feature-name { font-weight: 600; margin-bottom: 4px; }
-.pitchperfect-feature-desc { font-size: 12px; color: #757575; }
-
-/* Loading */
+/* Loading spinner */
 .pitchperfect-loading {
     display: flex;
     align-items: center;
@@ -173,11 +251,19 @@
     padding: 24px;
 }
 
-/* Success animation */
+/* Success checkmark animation */
 @keyframes pitchperfect-checkmark {
-    0% { transform: scale(0); opacity: 0; }
-    50% { transform: scale(1.2); }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .pitchperfect-success-checkmark {
@@ -185,7 +271,7 @@
     color: #46b450;
 }
 
-/* Tooltip */
+/* Tooltip styles */
 .pitchperfect-tooltip {
     position: absolute;
     z-index: 100000;
@@ -208,4 +294,50 @@
     border-left: 6px solid transparent;
     border-right: 6px solid transparent;
     border-top: 6px solid #1e1e1e;
+}
+
+/* Admin settings page */
+.pitchperfect-settings-wrap {
+    max-width: 800px;
+}
+
+.pitchperfect-settings-section {
+    background: #fff;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.pitchperfect-settings-section h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/* Feature toggle cards */
+.pitchperfect-feature-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.pitchperfect-feature-toggle:last-child {
+    border-bottom: none;
+}
+
+.pitchperfect-feature-info {
+    flex: 1;
+}
+
+.pitchperfect-feature-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.pitchperfect-feature-desc {
+    font-size: 12px;
+    color: #757575;
 }

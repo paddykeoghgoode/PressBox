@@ -7,7 +7,7 @@ const { registerPlugin } = wp.plugins;
 const { PluginSidebar, PluginSidebarMoreMenuItem } = wp.editPost;
 const { PanelBody, Button, Spinner, SelectControl, ToggleControl, Notice } = wp.components;
 const { useSelect, useDispatch, dispatch, select } = wp.data;
-const { useState, useEffect, useCallback, Fragment, createElement } = wp.element;
+const { useState, useEffect, useCallback, Fragment, createElement, useMemo } = wp.element;
 const { __ } = wp.i18n;
 const apiFetch = wp.apiFetch;
 
@@ -29,6 +29,10 @@ const TYPE_LABELS = {
     consistency: 'Consistency',
     speculation: 'Speculation',
     repetition: 'Repetition',
+    rewrite: 'Rewrite',
+    seo: 'SEO',
+    readability: 'Readability',
+    tone: 'Tone',
 };
 
 // Type icons (using dashicons)
@@ -42,6 +46,10 @@ const TYPE_ICONS = {
     consistency: 'update',
     speculation: 'warning',
     repetition: 'controls-repeat',
+    rewrite: 'editor-contract',
+    seo: 'chart-line',
+    readability: 'book-alt',
+    tone: 'format-status',
 };
 
 /**
@@ -56,6 +64,45 @@ const PitchPerfectSidebar = () => {
     const [dismissedIds, setDismissedIds] = useState(new Set());
     const [expandedId, setExpandedId] = useState(null);
     const [error, setError] = useState(null);
+    const [rewriteMode, setRewriteMode] = useState('shorten');
+    const [rewriteSuggestions, setRewriteSuggestions] = useState([]);
+    const [isRewriting, setIsRewriting] = useState(false);
+    const [rewriteError, setRewriteError] = useState(null);
+    const { editPost } = useDispatch('core/editor');
+
+    const getPlainTextFromHtml = (html) => {
+        const container = document.createElement('div');
+        container.innerHTML = html;
+        return container.textContent || container.innerText || '';
+    };
+
+    const getContextSnippet = (text, start, end) => {
+        if (!text || start == null || end == null) {
+            return null;
+        }
+        const safeStart = Math.max(0, start - 40);
+        const safeEnd = Math.min(text.length, end + 40);
+        return {
+            before: text.slice(safeStart, start),
+            match: text.slice(start, end),
+            after: text.slice(end, safeEnd),
+        };
+    };
+
+    const analysisText = useMemo(() => {
+        const fullContent = `<h1>${postTitle || ''}</h1>\n${postContent}`;
+        return getPlainTextFromHtml(fullContent);
+    }, [postContent, postTitle]);
+
+    const documentStats = useMemo(() => {
+        if (!analysisText) {
+            return { words: 0, sentences: 0, paragraphs: 0 };
+        }
+        const words = analysisText.trim() ? analysisText.trim().split(/\s+/).length : 0;
+        const sentences = analysisText.split(/[.!?]+/).filter(Boolean).length;
+        const paragraphs = analysisText.split(/\n\s*\n/).filter((para) => para.trim()).length;
+        return { words, sentences, paragraphs };
+    }, [analysisText]);
 
     // Get post content and metadata
     const { postContent, postId, postTitle } = useSelect((select) => {
@@ -66,6 +113,33 @@ const PitchPerfectSidebar = () => {
             postTitle: editor.getEditedPostAttribute('title'),
         };
     }, []);
+
+    const replaceFirstOccurrence = (source, search, replacement) => {
+        if (!source || !search) {
+            return null;
+        }
+        const index = source.indexOf(search);
+        if (index === -1) {
+            return null;
+        }
+        return source.slice(0, index) + replacement + source.slice(index + search.length);
+    };
+
+    const applyTextReplacement = (original, replacement) => {
+        const updatedContent = replaceFirstOccurrence(postContent, original, replacement);
+        if (updatedContent !== null) {
+            editPost({ content: updatedContent });
+            return true;
+        }
+
+        const updatedTitle = replaceFirstOccurrence(postTitle, original, replacement);
+        if (updatedTitle !== null) {
+            editPost({ title: updatedTitle });
+            return true;
+        }
+
+        return false;
+    };
 
     /**
      * Analyse content via REST API
@@ -135,14 +209,119 @@ const PitchPerfectSidebar = () => {
      * Apply a replacement
      */
     const applyReplacement = async (suggestion, replacement) => {
-        // For now, just dismiss the suggestion
-        // Full implementation would need block-level editing
+        const original = suggestion.original || '';
+        const applied = original ? applyTextReplacement(original, replacement) : false;
+
+        if (applied) {
+            dismissSuggestion(suggestion.id);
+            dispatch('core/notices').createNotice(
+                'success',
+                __('Suggestion applied. Review the change in your content.', 'pitchperfect'),
+                { type: 'snackbar', isDismissible: true }
+            );
+            return;
+        }
+
         dismissSuggestion(suggestion.id);
-        
-        // Show notice
         dispatch('core/notices').createNotice(
-            'info',
-            __('Suggestion applied. Review the change in your content.', 'pitchperfect'),
+            'warning',
+            __('Suggestion dismissed. The editor could not auto-apply this change.', 'pitchperfect'),
+            { type: 'snackbar', isDismissible: true }
+        );
+    };
+
+    const generateRewrites = useCallback(async () => {
+        if (!postContent && !postTitle) {
+            setRewriteSuggestions([]);
+            return;
+        }
+
+        setIsRewriting(true);
+        setRewriteError(null);
+
+        try {
+            const fullContent = `<h1>${postTitle || ''}</h1>\n${postContent}`;
+
+            const response = await apiFetch({
+                path: '/pitchperfect/v1/rewrite',
+                method: 'POST',
+                data: {
+                    postId: postId,
+                    content: fullContent,
+                    mode: rewriteMode,
+                },
+            });
+
+            setRewriteSuggestions(response.rewrites || []);
+        } catch (err) {
+            console.error('PitchPerfect rewrite error:', err);
+            setRewriteError(err.message || 'Rewrite failed');
+        } finally {
+            setIsRewriting(false);
+        }
+    }, [postContent, postTitle, postId, rewriteMode]);
+
+    const applyRewrite = (rewrite) => {
+        const applied = applyTextReplacement(rewrite.original, rewrite.rewrite);
+
+        if (applied) {
+            dispatch('core/notices').createNotice(
+                'success',
+                __('Rewrite applied. Review the change in your content.', 'pitchperfect'),
+                { type: 'snackbar', isDismissible: true }
+            );
+            setRewriteSuggestions((prev) => prev.filter((item) => item.id !== rewrite.id));
+            return;
+        }
+
+        dispatch('core/notices').createNotice(
+            'warning',
+            __('Rewrite could not be applied automatically.', 'pitchperfect'),
+            { type: 'snackbar', isDismissible: true }
+        );
+    };
+
+    const applySafeFixes = () => {
+        const applicable = suggestions.filter((s) => {
+            return s.replacements && s.replacements.length > 0 && s.original;
+        });
+        let appliedCount = 0;
+
+        applicable.forEach((suggestion) => {
+            const applied = applyTextReplacement(suggestion.original, suggestion.replacements[0]);
+            if (applied) {
+                appliedCount += 1;
+                dismissSuggestion(suggestion.id);
+            }
+        });
+
+        dispatch('core/notices').createNotice(
+            appliedCount > 0 ? 'success' : 'warning',
+            appliedCount > 0
+                ? __('Applied safe fixes. Review changes in your content.', 'pitchperfect')
+                : __('No safe fixes could be applied automatically.', 'pitchperfect'),
+            { type: 'snackbar', isDismissible: true }
+        );
+    };
+
+    const copyRewrite = async (rewrite) => {
+        if (!rewrite?.rewrite) {
+            return;
+        }
+
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(rewrite.rewrite);
+            dispatch('core/notices').createNotice(
+                'success',
+                __('Rewrite copied to clipboard.', 'pitchperfect'),
+                { type: 'snackbar', isDismissible: true }
+            );
+            return;
+        }
+
+        dispatch('core/notices').createNotice(
+            'warning',
+            __('Clipboard access unavailable in this browser.', 'pitchperfect'),
             { type: 'snackbar', isDismissible: true }
         );
     };
@@ -155,6 +334,8 @@ const PitchPerfectSidebar = () => {
         const severityColor = SEVERITY_COLORS[suggestion.severity] || SEVERITY_COLORS.info;
         const typeLabel = TYPE_LABELS[suggestion.type] || suggestion.type;
         const typeIcon = TYPE_ICONS[suggestion.type] || 'editor-help';
+
+        const contextSnippet = getContextSnippet(analysisText, suggestion.start, suggestion.end);
 
         return createElement('div', {
             key: suggestion.id,
@@ -200,6 +381,10 @@ const PitchPerfectSidebar = () => {
                             color: severityColor,
                         },
                     }, typeLabel),
+                    suggestion.confidence != null && createElement('span', {
+                        key: 'confidence',
+                        className: 'pitchperfect-confidence',
+                    }, `${Math.round(suggestion.confidence * 100)}%`),
                 ]),
                 createElement(Button, {
                     key: 'expand-btn',
@@ -222,6 +407,14 @@ const PitchPerfectSidebar = () => {
             
             // Expanded content
             isExpanded && createElement(Fragment, { key: 'expanded' }, [
+                contextSnippet && createElement('div', {
+                    key: 'context',
+                    className: 'pitchperfect-context',
+                }, [
+                    createElement('span', { key: 'before' }, contextSnippet.before),
+                    createElement('mark', { key: 'match' }, contextSnippet.match),
+                    createElement('span', { key: 'after' }, contextSnippet.after),
+                ]),
                 // Explanation
                 suggestion.explanation && createElement('p', {
                     key: 'explanation',
@@ -308,6 +501,12 @@ const PitchPerfectSidebar = () => {
                     onClick: analyseContent,
                     style: { width: '100%', justifyContent: 'center', marginBottom: '12px' },
                 }, isAnalyzing ? __('Analysing...', 'pitchperfect') : __('Analyse Content', 'pitchperfect')),
+                suggestions.length > 0 && createElement(Button, {
+                    key: 'apply-safe',
+                    isSecondary: true,
+                    onClick: applySafeFixes,
+                    style: { width: '100%', justifyContent: 'center', marginBottom: '12px' },
+                }, __('Apply Safe Fixes', 'pitchperfect')),
                 
                 lastAnalyzed && createElement('p', {
                     key: 'last-analyzed',
@@ -320,6 +519,115 @@ const PitchPerfectSidebar = () => {
                     isDismissible: true,
                     onRemove: () => setError(null),
                 }, error),
+            ]),
+
+            createElement(PanelBody, {
+                key: 'stats',
+                title: __('Document Stats', 'pitchperfect'),
+                initialOpen: false,
+            }, [
+                createElement('div', {
+                    key: 'stats-grid',
+                    className: 'pitchperfect-stats-grid',
+                }, [
+                    createElement('div', {
+                        key: 'words',
+                        className: 'pitchperfect-stat-card',
+                    }, [
+                        createElement('div', { key: 'count', className: 'pitchperfect-stat-count' }, documentStats.words),
+                        createElement('div', { key: 'label', className: 'pitchperfect-stat-label' }, __('Words', 'pitchperfect')),
+                    ]),
+                    createElement('div', {
+                        key: 'sentences',
+                        className: 'pitchperfect-stat-card',
+                    }, [
+                        createElement('div', { key: 'count', className: 'pitchperfect-stat-count' }, documentStats.sentences),
+                        createElement('div', { key: 'label', className: 'pitchperfect-stat-label' }, __('Sentences', 'pitchperfect')),
+                    ]),
+                    createElement('div', {
+                        key: 'paragraphs',
+                        className: 'pitchperfect-stat-card',
+                    }, [
+                        createElement('div', { key: 'count', className: 'pitchperfect-stat-count' }, documentStats.paragraphs),
+                        createElement('div', { key: 'label', className: 'pitchperfect-stat-label' }, __('Paragraphs', 'pitchperfect')),
+                    ]),
+                ]),
+            ]),
+
+            // Rewrite Tools
+            window.pitchPerfectData?.options?.features?.rewrite_tools && createElement(PanelBody, {
+                key: 'rewrite',
+                title: __('Rewrite Tools', 'pitchperfect'),
+                initialOpen: false,
+            }, [
+                createElement(SelectControl, {
+                    key: 'rewrite-mode',
+                    label: __('Rewrite Mode', 'pitchperfect'),
+                    value: rewriteMode,
+                    options: [
+                        { label: __('All Modes', 'pitchperfect'), value: 'all' },
+                        { label: __('Shorten', 'pitchperfect'), value: 'shorten' },
+                        { label: __('Simplify', 'pitchperfect'), value: 'simplify' },
+                        { label: __('Punchy', 'pitchperfect'), value: 'punchy' },
+                        { label: __('Formal', 'pitchperfect'), value: 'formal' },
+                    ],
+                    onChange: setRewriteMode,
+                }),
+                createElement(Button, {
+                    key: 'rewrite-btn',
+                    isSecondary: true,
+                    isBusy: isRewriting,
+                    disabled: isRewriting,
+                    onClick: generateRewrites,
+                    style: { width: '100%', justifyContent: 'center', marginTop: '8px' },
+                }, isRewriting ? __('Rewriting...', 'pitchperfect') : __('Generate Rewrites', 'pitchperfect')),
+                rewriteError && createElement(Notice, {
+                    key: 'rewrite-error',
+                    status: 'error',
+                    isDismissible: true,
+                    onRemove: () => setRewriteError(null),
+                }, rewriteError),
+                rewriteSuggestions.length === 0 && !isRewriting && createElement('p', {
+                    key: 'rewrite-empty',
+                    style: { color: '#757575', fontStyle: 'italic' },
+                }, __('No rewrite suggestions yet.', 'pitchperfect')),
+                rewriteSuggestions.length > 0 && createElement('div', {
+                    key: 'rewrite-list',
+                    className: 'pitchperfect-rewrite-list',
+                }, rewriteSuggestions.map((rewrite) => createElement('div', {
+                    key: rewrite.id,
+                    className: 'pitchperfect-rewrite-card',
+                }, [
+                    createElement('div', {
+                        key: 'rewrite-mode',
+                        className: 'pitchperfect-rewrite-mode',
+                    }, rewrite.mode ? rewrite.mode.toUpperCase() : ''),
+                    createElement('div', {
+                        key: 'rewrite-original',
+                        className: 'pitchperfect-rewrite-original',
+                    }, rewrite.original),
+                    createElement('div', {
+                        key: 'rewrite-suggestion',
+                        className: 'pitchperfect-rewrite-suggestion',
+                    }, rewrite.rewrite),
+                    rewrite.explanation && createElement('div', {
+                        key: 'rewrite-explanation',
+                        className: 'pitchperfect-rewrite-explanation',
+                    }, rewrite.explanation),
+                    createElement(Button, {
+                        key: 'rewrite-apply',
+                        isPrimary: true,
+                        isSmall: true,
+                        onClick: () => applyRewrite(rewrite),
+                    }, __('Apply Rewrite', 'pitchperfect')),
+                    createElement(Button, {
+                        key: 'rewrite-copy',
+                        isSecondary: true,
+                        isSmall: true,
+                        onClick: () => copyRewrite(rewrite),
+                        style: { marginLeft: '6px' },
+                    }, __('Copy', 'pitchperfect')),
+                ]))),
             ]),
             
             // Summary
